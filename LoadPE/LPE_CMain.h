@@ -29,4 +29,9 @@ public:
 	afx_msg void OnLvnItemchangedListProcess(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnBnClickedButtonAbout();
 	afx_msg void OnBnClickedButtonQuit();
+	afx_msg void OnBnClickedButtonPeedit();
+	afx_msg void OnDropFiles(HDROP hDropInfo);
+	afx_msg void OnBnClickedButtonIndll();
+	afx_msg void OnBnClickedButtonUndll();
+	afx_msg void OnBnClickedButtonInpack();
 };

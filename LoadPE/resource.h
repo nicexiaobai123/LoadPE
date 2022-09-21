@@ -16,7 +16,6 @@
 #define IDC_BUTTON_INDLL                1007
 #define IDC_STATIC_LINK                 1008
 #define IDC_BUTTON_UNDLL                1008
-#define IDC_BUTTON_PEEDIT4              1009
 #define IDC_BUTTON_INPACK               1009
 
 // Next default values for new objects

@@ -1,18 +1,18 @@
 ﻿// LPE_CMain.cpp: 实现文件
 //
-
 #include "pch.h"
-#include "LPE_CMain.h"
-#include "LPE_CAbout.h"
 #include <TlHelp32.h>
 #include <psapi.h>
+#include "LPE_CMain.h"
+#include "LPE_CAbout.h"
+#include "LPE_Inject.h"
 
 // CMain 对话框
 IMPLEMENT_DYNAMIC(CMain, CDialogEx)
 
 CMain::CMain(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_MAIN, pParent)
-{	
+{
 }
 
 CMain::~CMain()
@@ -49,7 +49,7 @@ void CMain::InitListView()
 
 	// 风格
 	int style = m_list_process.GetExtendedStyle();
-	m_list_process.SetExtendedStyle(style | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);
+	m_list_process.SetExtendedStyle(style | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVNI_FOCUSED);
 
 	// 三列
 	m_list_process.InsertColumn(0, TEXT("进程名"), LVCFMT_LEFT, 220);
@@ -77,19 +77,19 @@ void CMain::InitListView()
 
 			char* buff = new char[256]{ 0 };
 			DWORD path_size = 256;
-			HANDLE hprocess = OpenProcess(PROCESS_QUERY_INFORMATION,false, pro_entry.th32ProcessID);
+			HANDLE hprocess = OpenProcess(PROCESS_QUERY_INFORMATION, false, pro_entry.th32ProcessID);
 
 			// 两种方法,都是根据PID获取完全路径 注释的是从device开始
 			// int ret = QueryFullProcessImageName(hprocess, 1, path, &path_size);
-			int ret = GetModuleFileNameExA(hprocess,NULL, buff, path_size);		   // NULL表示exe文件
+			int ret = GetModuleFileNameExA(hprocess, NULL, buff, path_size);		   // NULL表示exe文件
 			if (ret) {
 				CString path(buff);
 				m_list_process.SetItemText(row_index, 2, path);	// 路径
 			}
-			
+
 			delete[] buff;
 			CloseHandle(hprocess);
-			
+
 			row_index++;
 		} while (Process32Next(hSnap, &pro_entry));
 	}
@@ -103,8 +103,8 @@ void CMain::InitListView2()
 	m_list_modules.SetExtendedStyle(style | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);
 
 	// 四列
-	m_list_modules.InsertColumn(0,TEXT("基址"), LVCFMT_LEFT,125);
-	m_list_modules.InsertColumn(1, TEXT("大小"), LVCFMT_LEFT,95);
+	m_list_modules.InsertColumn(0, TEXT("基址"), LVCFMT_LEFT, 125);
+	m_list_modules.InsertColumn(1, TEXT("大小"), LVCFMT_LEFT, 95);
 	m_list_modules.InsertColumn(2, TEXT("路径"), LVCFMT_LEFT, 480);
 	m_list_modules.InsertColumn(3, TEXT(""), LVCFMT_LEFT, 20);
 }
@@ -114,6 +114,11 @@ BEGIN_MESSAGE_MAP(CMain, CDialogEx)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST_PROCESS, &CMain::OnLvnItemchangedListProcess)
 	ON_BN_CLICKED(IDC_BUTTON_ABOUT, &CMain::OnBnClickedButtonAbout)
 	ON_BN_CLICKED(IDC_BUTTON_QUIT, &CMain::OnBnClickedButtonQuit)
+	ON_BN_CLICKED(IDC_BUTTON_PEEDIT, &CMain::OnBnClickedButtonPeedit)
+	ON_WM_DROPFILES()
+	ON_BN_CLICKED(IDC_BUTTON_INDLL, &CMain::OnBnClickedButtonIndll)
+	ON_BN_CLICKED(IDC_BUTTON_UNDLL, &CMain::OnBnClickedButtonUndll)
+	ON_BN_CLICKED(IDC_BUTTON_INPACK, &CMain::OnBnClickedButtonInpack)
 END_MESSAGE_MAP()
 
 // 选中条目改变		遍历模块
@@ -128,23 +133,23 @@ void CMain::OnLvnItemchangedListProcess(NMHDR* pNMHDR, LRESULT* pResult)
 
 		int sel_row = m_list_process.GetNextItem(-1, LVNI_SELECTED);				// 获取选中状态的行号
 		DWORD dw_pid = _ttoi(m_list_process.GetItemText(sel_row, 1).GetString());	// pid字符转换成数字
-		HANDLE hprocess = OpenProcess(PROCESS_ALL_ACCESS,false, dw_pid);
+		HANDLE hprocess = OpenProcess(PROCESS_ALL_ACCESS, false, dw_pid);
 		if (hprocess == NULL) return;
 
 		// 获取模块总大小
 		HMODULE temp = 0;
 		DWORD dw_size = 0;
-		if (EnumProcessModulesEx(hprocess, &temp, sizeof(HMODULE), &dw_size, LIST_MODULES_ALL) == 0) {
+		if (EnumProcessModulesEx(hprocess, &temp, sizeof(HMODULE), &dw_size, LIST_MODULES_DEFAULT) == 0) {
 			return;
 		}
 
 		// 获取所有模块句柄	必成功
 		HMODULE* module_arr = NULL;
-		if ((module_arr = new HMODULE[ dw_size / sizeof(HMODULE)] ) == NULL) {
+		if ((module_arr = new HMODULE[dw_size / sizeof(HMODULE)]) == NULL) {
 			return;
 		}
-		EnumProcessModulesEx(hprocess, module_arr, dw_size, &dw_size, LIST_MODULES_ALL);
-		
+		EnumProcessModulesEx(hprocess, module_arr, dw_size, &dw_size, LIST_MODULES_DEFAULT);
+
 		// 遍历所有模块
 		int row_index = 0;
 		for (int i = 0; i < (dw_size / sizeof(HMODULE)); i++)
@@ -176,7 +181,7 @@ void CMain::OnLvnItemchangedListProcess(NMHDR* pNMHDR, LRESULT* pResult)
 // 关于对话框  模态对话框
 void CMain::OnBnClickedButtonAbout()
 {
-	CAbout about_dlg;
+	CAbout about_dlg(this);
 	about_dlg.DoModal();
 	return;
 }
@@ -185,4 +190,86 @@ void CMain::OnBnClickedButtonAbout()
 void CMain::OnBnClickedButtonQuit()
 {
 	exit(0);
+}
+
+// PE编辑器按钮
+void CMain::OnBnClickedButtonPeedit()
+{
+	TCHAR szFilter[] = TEXT("可执行文件(*.exe;*sys;*dll)|*.exe;*.sys;*.dll|所有文件(*.*)|*.*||");
+	CFileDialog file_browser(TRUE, TEXT(".exe"), NULL, 0, szFilter, this);
+	if (file_browser.DoModal() != IDOK) return;
+
+	CString str = file_browser.GetPathName();
+	MessageBox(str);
+}
+
+// 文件拖拽触发
+void CMain::OnDropFiles(HDROP hDropInfo)
+{
+	TCHAR szFilename[256] = {};
+	DragQueryFile(hDropInfo, 0, szFilename, 254);
+	MessageBox(szFilename);
+
+
+	CDialogEx::OnDropFiles(hDropInfo);
+}
+
+// 注入dll按钮
+void CMain::OnBnClickedButtonIndll()
+{
+	//	得到选中进程的PID
+	int sel_row = -1;
+	sel_row = m_list_process.GetNextItem(-1, LVNI_SELECTED);
+	int pid = _ttoi(m_list_process.GetItemText(sel_row, 1).GetString());
+	if (sel_row == -1) return;
+
+	//	要注入的dll路径
+	TCHAR szFilter[] = TEXT("动态链接库(*dll)|*.dll||");
+	CFileDialog file_browser(TRUE, TEXT(".dll"), NULL, 0, szFilter, this);
+	if (file_browser.DoModal() != IDOK) return;
+	CString dll_path = file_browser.GetPathName();
+
+	//	注入->远程线程注入
+	CString info;
+	HMODULE hModule = RmThread_Inject(pid, dll_path.GetString());
+	if (hModule != 0) {
+		info.Format(TEXT(" %s \n 基址: %p \n 路径: "), "注入成功", hModule);
+		info.Append(dll_path);
+		MessageBox(info, 0, MB_ICONINFORMATION);
+	}
+	else {
+		info.Format(TEXT("注入失败\n%s\n%s"), "1.当前注入器无权限", "2.dll与进程字长不一致");
+		MessageBox(info, 0, MB_ICONWARNING);
+	}
+}
+
+// 卸载dll按钮
+void CMain::OnBnClickedButtonUndll()
+{
+	//	得到选中进程的PID
+	int sel_row = -1;
+	sel_row = m_list_process.GetNextItem(-1, LVNI_SELECTED);
+	int pid = _ttoi(m_list_process.GetItemText(sel_row, 1).GetString());
+	if (sel_row == -1) return;
+
+	//	得到选中模块的基址
+	sel_row = m_list_modules.GetNextItem(-1, LVNI_SELECTED);
+	HMODULE dllModule = 0;
+	int ret = sscanf_s(m_list_modules.GetItemText(sel_row, 0).GetString(), "%p", &dllModule);
+	if (sel_row == -1 || ret == 0) return;
+
+	//	卸载注入 -> FreeLibrary 模块句柄就是基址
+	if (RmThread_Unject(pid, dllModule)) {
+
+		MessageBox(TEXT("选中的dll被卸载成功"),0, MB_ICONINFORMATION);
+	}
+	else {
+		MessageBox(TEXT("卸载失败"), 0, MB_ICONINFORMATION);
+	}
+}
+
+// 加壳按钮
+void CMain::OnBnClickedButtonInpack()
+{
+	// TODO: 在此添加控件通知处理程序代码
 }

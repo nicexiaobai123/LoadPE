@@ -24,6 +24,9 @@
     <ClCompile Include="LPE_CAbout.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="LPE_Inject.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -36,6 +39,9 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="LPE_CAbout.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="LPE_Inject.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
