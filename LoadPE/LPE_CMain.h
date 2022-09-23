@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "pch.h"
+#include "LPE_CInPack.h"
 
 // CMain 对话框
 

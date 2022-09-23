@@ -38,7 +38,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -144,15 +144,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="LPE_CAbout.cpp" />
+    <ClCompile Include="LPE_CInPack.cpp" />
     <ClCompile Include="LPE_CMain.cpp" />
     <ClCompile Include="LPE_Inject.cpp" />
+    <ClCompile Include="LPE_Pack.cpp" />
     <ClCompile Include="LPE_theApp.cpp" />
+    <ClCompile Include="PEtools.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="LPE_CAbout.h" />
+    <ClInclude Include="LPE_CInPack.h" />
     <ClInclude Include="LPE_CMain.h" />
     <ClInclude Include="LPE_Inject.h" />
+    <ClInclude Include="LPE_Pack.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PEtools.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>

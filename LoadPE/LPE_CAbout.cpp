@@ -37,3 +37,4 @@ BOOL CAbout::OnInitDialog()
 
 BEGIN_MESSAGE_MAP(CAbout, CDialogEx)
 END_MESSAGE_MAP()
+

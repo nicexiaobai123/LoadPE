@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="PEtools">
+      <UniqueIdentifier>{6200e6d3-c64e-4a74-ab5b-472dbb9f0187}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LPE_theApp.cpp">
@@ -26,6 +29,15 @@
     </ClCompile>
     <ClCompile Include="LPE_Inject.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="LPE_CInPack.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="LPE_Pack.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="PEtools.cpp">
+      <Filter>PEtools</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -43,6 +55,15 @@
     </ClInclude>
     <ClInclude Include="LPE_Inject.h">
       <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="LPE_CInPack.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="LPE_Pack.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PEtools.h">
+      <Filter>PEtools</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

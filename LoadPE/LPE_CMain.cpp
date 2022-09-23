@@ -6,6 +6,7 @@
 #include "LPE_CMain.h"
 #include "LPE_CAbout.h"
 #include "LPE_Inject.h"
+#include "LPE_CInPack.h"
 
 // CMain 对话框
 IMPLEMENT_DYNAMIC(CMain, CDialogEx)
@@ -13,10 +14,12 @@ IMPLEMENT_DYNAMIC(CMain, CDialogEx)
 CMain::CMain(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_DIALOG_MAIN, pParent)
 {
+
 }
 
 CMain::~CMain()
 {
+
 }
 
 // 变量与控件的绑定关系
@@ -199,6 +202,7 @@ void CMain::OnBnClickedButtonPeedit()
 	CFileDialog file_browser(TRUE, TEXT(".exe"), NULL, 0, szFilter, this);
 	if (file_browser.DoModal() != IDOK) return;
 
+
 	CString str = file_browser.GetPathName();
 	MessageBox(str);
 }
@@ -209,7 +213,7 @@ void CMain::OnDropFiles(HDROP hDropInfo)
 	TCHAR szFilename[256] = {};
 	DragQueryFile(hDropInfo, 0, szFilename, 254);
 	MessageBox(szFilename);
-
+	
 
 	CDialogEx::OnDropFiles(hDropInfo);
 }
@@ -267,9 +271,15 @@ void CMain::OnBnClickedButtonUndll()
 		MessageBox(TEXT("卸载失败"), 0, MB_ICONINFORMATION);
 	}
 }
-
-// 加壳按钮
+ 
+// 加壳按钮 
 void CMain::OnBnClickedButtonInpack()
 {
-	// TODO: 在此添加控件通知处理程序代码
+	//DialogBox(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDD_DIALOG_INPACK), (HWND)this->m_hWnd, Dlgproc);
+	//CInPack inPack = new CInPack;
+	//inPack->Create(IDD_DIALOG_INPACK, this);
+	//inPack->ShowWindow(SW_SHOW);
+
+	CInPack inPack(NULL);
+	inPack.DoModal();
 }
