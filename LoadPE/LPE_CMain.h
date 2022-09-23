@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "pch.h"
+#include "LPE_CInPack.h"
 
 // CMain 对话框
 
@@ -20,6 +21,7 @@ protected:
 	virtual BOOL OnInitDialog();
 	void InitListView();
 	void InitListView2();
+	void Init_PEDlg();
 public:
 private:
 	CImageList img_list;
@@ -29,9 +31,9 @@ public:
 	afx_msg void OnLvnItemchangedListProcess(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnBnClickedButtonAbout();
 	afx_msg void OnBnClickedButtonQuit();
-	afx_msg void OnBnClickedButtonPeedit();
 	afx_msg void OnDropFiles(HDROP hDropInfo);
 	afx_msg void OnBnClickedButtonIndll();
 	afx_msg void OnBnClickedButtonUndll();
 	afx_msg void OnBnClickedButtonInpack();
+	afx_msg void OnBnClickedButtonPe();
 };

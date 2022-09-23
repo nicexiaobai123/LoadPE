@@ -1,10 +1,10 @@
 #include "LPE_Inject.h"
 
 // LoadLibrary
-HMODULE RmThread_Inject(DWORD pid, LPCSTR dll_path)
+HMODULE RmThread_Inject(long pid, LPCSTR dll_path)
 {
 	HMODULE exitCode{ 0 };
-	DWORD path_len = _tcslen(dll_path) + 1;
+	long path_len = _tcslen(dll_path) + 1;
 	if (pid == 0 || path_len < 5) return 0;
 
 	HANDLE hProcess = NULL;
@@ -42,11 +42,10 @@ HMODULE RmThread_Inject(DWORD pid, LPCSTR dll_path)
 }
 
 // FreeLibrary();
-BOOL RmThread_Unject(DWORD pid, HMODULE hmod)
+BOOL RmThread_Unject(long pid, HMODULE hmod)
 {
 	DWORD exitCode = false;
 	if (pid == 0 || hmod == NULL) return false;
-
 	HANDLE hProcess = NULL;
 	HANDLE hRmThread = NULL;
 	hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, pid);
