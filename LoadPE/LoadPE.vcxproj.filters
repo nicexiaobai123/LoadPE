@@ -80,6 +80,12 @@
     <ClInclude Include="LPE_Pack.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="LPE_CInPack.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="LPE_Pack.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="PEtools.h">
       <Filter>PEtools</Filter>
     </ClInclude>

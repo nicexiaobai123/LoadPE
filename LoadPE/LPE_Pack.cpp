@@ -40,6 +40,10 @@ bool InPack(const TCHAR* infile, const TCHAR* shellfile, const TCHAR* outfile)
 	//	获取壳子管理的一个结构体(导出了)
 	_PSHARE Share = (_PSHARE)GetProcAddress((HMODULE)cur_load_dll, "share");
 
+	//	定义pe对象,加载exe文件,加载成功用is_success判断
+	PEtools pet_exe(infile);
+	if (!pet_exe.is_success())return 0;
+
 	//	定义结构体中 oep,relo,tls,import
 	Share->old_oep = pe_exe.get_oep();
 	Share->reloca_rva = pe_exe.get_relocate_rva();
