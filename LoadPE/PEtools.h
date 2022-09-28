@@ -10,13 +10,6 @@ private:
 	bool init_filename_data(const string& file_name);
 	bool init_pe_data(PVOID buffer);
 	bool init_pe_data(const PEtools& pet);
-private:
-	// 得到严格的imagesize
-	long get_real_imagesize() {
-		long sec_begin = pfirst_section_header[pfile_header->NumberOfSections - 1].VirtualAddress;
-		long sec_size = pfirst_section_header[pfile_header->NumberOfSections - 1].Misc.VirtualSize;
-		return  to_sectionAlignment(sec_begin + sec_size);
-	}
 public:
 	//	使用ReadProcessMemory间接判断地址是否无效
 	static bool JudgeMemValid(LPVOID virAddr)
@@ -77,7 +70,7 @@ public:
 	DWORD get_import_rva()const
 	{
 		return get_dirnum_rva(1);
- 	}
+	}
 	DWORD get_relocate_rva()const
 	{
 		return get_dirnum_rva(5);
@@ -98,11 +91,11 @@ public:
 	{
 		set_dirnum_rva(9, rva);
 	}
-	//
-	DWORD_PTR get_imagebase()const { return poption_header->ImageBase; }
 
+	DWORD_PTR get_imagebase()const { return poption_header->ImageBase; }
 	void set_oep(DWORD rva) { poption_header->AddressOfEntryPoint = rva; }
 	DWORD get_oep()const { return poption_header->AddressOfEntryPoint; }
+
 	DWORD get_filesize()const { return file_size; }
 	DWORD get_imagesize()const { return poption_header->SizeOfImage; }
 	PVOID get_pebuffer()const { return pe_buff; }
@@ -117,13 +110,6 @@ public:
 	string get_secname_byrva(DWORD rva);
 	// 保存至文件
 	bool to_file(const string& file_name);
-	// 获取函数地址rva，导出表解析
-	long funcaddr_rva(const string& func_name);
-	// 获取函数地址 文件下全地址
-	long funcaddr_fva(const string& func_name) { return funcaddr_rva(func_name) + (long)pe_buff; }
-	// 获取函数地址，导出表解析 序号获取
-	long funcaddr_rva(long func_ordinal);
-	long funcaddr_fva(long func_ordinal) { return funcaddr_rva(func_ordinal) + (long)pe_buff; }
 	// 增加节 参数：节名称、节内容、大小、属性
 	bool increase_section(const string& sec_name, const PVOID sec_buffer, DWORD buff_size, DWORD character);
 

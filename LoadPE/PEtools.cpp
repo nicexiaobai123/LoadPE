@@ -208,16 +208,8 @@ string PEtools::get_secname_byrva(DWORD rva)
 		}
 	}
 	return  string("");
-	}
-	delete[] pe_buff;
-	pe_buff = image_buff;
-	image_buff = nullptr;
-	init_pe_data(pe_buff);
-
-	// 修改文件大小
-	file_size = plsec->PointerToRawData + plsec->SizeOfRawData;
-	return true;
 }
+
 
 // 将buffer 里面的数据保存到文件
 bool PEtools::to_file(const string& file_name)
@@ -234,117 +226,6 @@ bool PEtools::to_file(const string& file_name)
 	}
 	CloseHandle(hfile);
 	return true;
-}
-
-//
-// ==================================== 查询信息 ====================================
-//	这些方法不会修改原有的PE结构，只是查询信息时使用
-//  其中方法 iat_index 是PETool(内存地址)，加载PE才能使用的方法，是导入表解析
-//  方法funcaddr_rva 是重载，是根据导出号、导出函数名获取函数地址rva，是导出表解析
-//  
-// ==================================================================================
-//
-
-// 根据导入表获取函数索引
-long PEtools::iat_index(const string& func_name)
-{
-	// 先判断是否内存中模样，load_pe_buff是否有值
-	if (func_name.empty() || load_pe_buff == nullptr) { return 0; }
-	long import_rva = get_import_rva();
-	if (import_rva == 0) { return 0; }
-
-	long iat_func_index = 0;
-	PIMAGE_IMPORT_DESCRIPTOR pImport = nullptr;
-	PIMAGE_THUNK_DATA pThunk_Original = nullptr;
-	PIMAGE_THUNK_DATA pThunk_First = nullptr;
-	PIMAGE_IMPORT_BY_NAME pImportByName = nullptr;
-
-	pImport = (PIMAGE_IMPORT_DESCRIPTOR)((long)load_pe_buff + import_rva);
-	while (pImport->Name != 0)
-	{
-		pThunk_Original = (PIMAGE_THUNK_DATA)((long)load_pe_buff + pImport->OriginalFirstThunk);
-		// IAT表
-		pThunk_First = (PIMAGE_THUNK_DATA)((long)load_pe_buff + pImport->FirstThunk);
-		while (pThunk_Original->u1.Ordinal != 0)
-		{
-			// 高位为1 是名称导入的
-			if ((pThunk_Original->u1.Ordinal & 0x80000000) != 0x80000000)
-			{
-				long name_rva = pThunk_Original->u1.AddressOfData;
-				pImportByName = (PIMAGE_IMPORT_BY_NAME)((long)load_pe_buff + name_rva);
-				if (strcmp(func_name.c_str(), pImportByName->Name) == 0)
-				{
-					iat_func_index = (long)pThunk_First;
-				}
-			}
-			pThunk_Original++;
-			pThunk_First++;
-		}
-		pImport++;
-	}
-	return iat_func_index;
-}
-
-// 获取函数地址，导出表解析
-long PEtools::funcaddr_rva(const string& func_name)
-{
-	long export_rva = get_export_rva();
-	if (func_name.empty() || export_rva == 0 || pe_buff == nullptr) { return 0; }
-
-	//导出表
-	long export_foa = rva_to_foa(export_rva);
-	PIMAGE_EXPORT_DIRECTORY pExport = nullptr;
-	pExport = (PIMAGE_EXPORT_DIRECTORY)((long)pe_buff + export_foa);
-
-	// 三个表
-	long func_foa = rva_to_foa(pExport->AddressOfFunctions);
-	long name_foa = rva_to_foa(pExport->AddressOfNames);
-	long ordinal_foa = rva_to_foa(pExport->AddressOfNameOrdinals);
-	PDWORD pFunc = (PDWORD)((long)pe_buff + func_foa);
-	PDWORD pName = (PDWORD)((long)pe_buff + name_foa);
-	PWORD pOrdinal = (PWORD)((long)pe_buff + ordinal_foa);
-
-	for (size_t i = 0; i < pExport->NumberOfNames; i++)
-	{
-		long fname_foa = rva_to_foa(pName[i]);
-		char* fname = (char*)((long)pe_buff + fname_foa);
-		if (strcmp(func_name.c_str(), fname) == 0)
-		{
-			return pFunc[pOrdinal[i]];
-		}
-	}
-	return 0;
-}
-
-// 通过导出号获取函数地址，导出表解析
-long PEtools::funcaddr_rva(long func_ordinal)
-{
-	long export_rva = get_export_rva();
-	if (export_rva == 0 || pe_buff == nullptr) { return 0; }
-
-	// 导出表
-	long export_foa = rva_to_foa(export_rva);
-	PIMAGE_EXPORT_DIRECTORY pExport = nullptr;
-	pExport = (PIMAGE_EXPORT_DIRECTORY)((long)pe_buff + export_foa);
-
-	// 三个表
-	long func_foa = rva_to_foa(pExport->AddressOfFunctions);
-	long name_foa = rva_to_foa(pExport->AddressOfNames);
-	long ordinal_foa = rva_to_foa(pExport->AddressOfNameOrdinals);
-	PDWORD pFunc = (PDWORD)((long)pe_buff + func_foa);
-	PDWORD pName = (PDWORD)((long)pe_buff + name_foa);
-	PWORD pOrdinal = (PWORD)((long)pe_buff + ordinal_foa);
-
-	for (size_t i = 0; i < pExport->NumberOfNames; i++)
-	{
-		if (pOrdinal[i] == func_ordinal)
-		{
-			// 导出序号 - Base = index
-			long index = pOrdinal[i] - pExport->Base;
-			return pFunc[index];
-		}
-	}
-	return 0;
 }
 
 //
@@ -430,140 +311,6 @@ bool PEtools::increase_section(const string& sec_name, const PVOID sec_buffer, D
 	return true;
 }
 
-// 合并节
-bool PEtools::combine_section(const string& fsection_name, const string& lsection_name
-	, const string& new_secname, long extra_character)
-{
-	// 判断值是否正确
-	if (fsection_name.empty() || lsection_name.empty())
-	{
-		return false;
-	}
-	if (fsection_name.length() > 8 || lsection_name.length() > 8 || new_secname.length() > 8)
-	{
-		return false;
-	}
-	if (pe_buff == nullptr) { return false; }
-
-	// filebuffer 转换成 imagebuffer
-	if (!to_imagebuffer()) { return false; }
-
-	// 确定合并的第一个节和最后一个节
-	PIMAGE_SECTION_HEADER ptemp_section = pfirst_section_header;
-	PIMAGE_SECTION_HEADER pfirst_combine = nullptr;
-	PIMAGE_SECTION_HEADER plast_combine = nullptr;
-	for (size_t i = 0; i < pfile_header->NumberOfSections; i++)
-	{
-		char* sec_name = (char*)ptemp_section[i].Name;
-		if (strcmp(sec_name, fsection_name.c_str()) == 0)
-		{
-			pfirst_combine = &ptemp_section[i];
-			continue;
-		}
-		if (strcmp(sec_name, lsection_name.c_str()) == 0)
-		{
-			plast_combine = &ptemp_section[i];
-			continue;
-		}
-	}
-	if (pfirst_combine == nullptr || plast_combine == nullptr || pfirst_combine >= plast_combine)
-	{
-		return false;
-	}
-
-	// 合并
-	long combine_number = ((long)plast_combine - (long)pfirst_combine) / IMAGE_SIZEOF_SECTION_HEADER;	// 要合并的数量
-	long sec_number = pfile_header->NumberOfSections;
-	pfile_header->NumberOfSections -= combine_number;		// 修改节数量
-	PIMAGE_SECTION_HEADER plast_sec = &pfirst_section_header[sec_number - 1];
-	while (combine_number)
-	{
-		// 属性合并
-		pfirst_combine->Characteristics |= (&pfirst_combine[1])->Characteristics;
-		// 计算下个节的vir_size 和 file_size，哪个大选哪个
-		// pe文件已经是拉伸状态，合并的两个节后的 VirtualSize == SizeOfRawData
-		// 确保pe文件能正确运行，既 得将文件的完整内容加载到内存 (系统根据SizeOfRawData将文件每个节复制到内存)
-		// 每个节的 viraddr+VirtualSize(对齐后) == 下个节的viraddr
-		// 每个节的 PointerToRawData + SizeOfRawData(对齐后) == 下个节的 PointerToRawData
-		long max_size = (&pfirst_combine[1])->Misc.VirtualSize > (&pfirst_combine[1])->SizeOfRawData ?
-			(&pfirst_combine[1])->Misc.VirtualSize : (&pfirst_combine[1])->SizeOfRawData;
-		long start_addr = pfirst_combine->VirtualAddress;
-		pfirst_combine->Misc.VirtualSize = (&pfirst_combine[1])->VirtualAddress + max_size - start_addr;	// 关键
-		pfirst_combine->SizeOfRawData = pfirst_combine->Misc.VirtualSize;
-
-		for (size_t i = 1; i < sec_number - 1; i++)
-		{
-			memcpy(&pfirst_combine[i], &pfirst_combine[i + 1], IMAGE_SIZEOF_SECTION_HEADER);
-		}
-		memset(plast_sec, 0, IMAGE_SIZEOF_SECTION_HEADER);
-		plast_sec--;
-		combine_number--;
-	}
-
-	// 修改名称和添加属性
-	PIMAGE_SECTION_HEADER ptemp_sec = pfirst_section_header;
-	if (!new_secname.empty())
-	{
-		char* src_name = (char*)ptemp_sec->Name;
-		memcpy(src_name, new_secname.c_str(), new_secname.length() + 1);
-	}
-	if (extra_character)
-	{
-		ptemp_sec->Characteristics |= extra_character;
-	}
-	return true;
-}
-
-// 移动导入表
-bool PEtools::move_import_table(long des_rva)
-{
-	if (pe_buff == nullptr) { return false; }
-	long import_foa = rva_to_foa(get_import_rva());
-	long des_foa = rva_to_foa(des_rva);
-	if (des_foa == 0 || import_foa == 0) { return false; }
-
-	// 得到大小
-	PIMAGE_IMPORT_DESCRIPTOR p_import = (PIMAGE_IMPORT_DESCRIPTOR)((long)pe_buff + import_foa);
-	PIMAGE_IMPORT_DESCRIPTOR ptemp_import = p_import;
-	PIMAGE_IMPORT_DESCRIPTOR target_pos = (PIMAGE_IMPORT_DESCRIPTOR)((long)pe_buff + des_foa);
-	while (ptemp_import->Name != 0) { ptemp_import++; }
-	ptemp_import++;												// 多一个空表
-	long import_size = (long)ptemp_import - (long)p_import;		// 大小
-	if (des_foa + import_size > file_size)return false;			// 界限
-
-	// 移动
-	memcpy(target_pos, p_import, import_size);
-	memset(p_import, 0, import_size);
-	set_import(des_rva);
-	return true;
-}
-
-// 移动重定位表
-bool PEtools::move_relocate_table(long des_rva)
-{
-	if (pe_buff == nullptr) { return false; }
-	long relocate_foa = rva_to_foa(get_relocate_rva());
-	long des_foa = rva_to_foa(des_rva);
-	if (des_foa == 0 || relocate_foa == 0) { return false; }
-
-	// 得到大小
-	PIMAGE_BASE_RELOCATION p_relocate = (PIMAGE_BASE_RELOCATION)((long)pe_buff + relocate_foa);
-	PIMAGE_BASE_RELOCATION ptemp_relp = p_relocate;
-	while (ptemp_relp->VirtualAddress != 0)
-	{
-		ptemp_relp = (PIMAGE_BASE_RELOCATION)((long)ptemp_relp + ptemp_relp->SizeOfBlock);
-	}
-	long relo_size = (long)ptemp_relp - (long)p_relocate + 8;	// 大小，多加8，结束标记
-	if ((des_foa + relo_size) >= file_size)return false;		// 界限
-
-	// 移动
-	PVOID target_pos = (PVOID)((long)pe_buff + des_foa);
-	memcpy(target_pos, p_relocate, relo_size);
-	memset(p_relocate, 0, relo_size);
-	set_relocate(des_rva);
-	return true;
-}
-
 //
 // ==================================  手工修复  ===================================
 // 手工修复只让其发生的一种情况
@@ -578,82 +325,78 @@ bool PEtools::repair_reloc(DWORD_PTR pre_imagebase, DWORD_PTR cur_imagebase, DWO
 {
 	if (load_pe_buff == nullptr) return false;
 	DWORD relo_rva = rva != 0 ? rva : get_relocate_rva();
-		if (relo_rva == 0) { return false; }
+	if (relo_rva == 0) { return false; }
 
 	PIMAGE_BASE_RELOCATION p_relocate = (PIMAGE_BASE_RELOCATION)((DWORD_PTR)load_pe_buff + relo_rva);
-		PIMAGE_BASE_RELOCATION ptemp_relp = p_relocate;
-		while (ptemp_relp->VirtualAddress != 0)
+	PIMAGE_BASE_RELOCATION ptemp_relp = p_relocate;
+	while (ptemp_relp->VirtualAddress != 0)
+	{
+		for (size_t i = 0; i < (ptemp_relp->SizeOfBlock - 8) / 2; i++)
 		{
-			for (size_t i = 0; i < (ptemp_relp->SizeOfBlock - 8) / 2; i++)
-			{
 			short* data = (short*)((DWORD_PTR)ptemp_relp + 8);
-				// 高位为3就是可修复
+			// 高位为 3或者a0 就是可修复
 			if ((data[i] & 0x3000) == 0x3000 || (data[i] & 0xa000) == 0xa000)
-				{
+			{
 				DWORD repair_rva = ptemp_relp->VirtualAddress + (data[i] & 0xFFF);
 				PDWORD_PTR repair_pos = (PDWORD_PTR)((DWORD_PTR)load_pe_buff + repair_rva);
-					// 内存属性
-					DWORD old_protect = 0;
+				// 内存属性
+				DWORD old_protect = 0;
 				VirtualProtect(repair_pos, sizeof(PDWORD_PTR), PAGE_EXECUTE_READWRITE, &old_protect);
-					*repair_pos = *repair_pos - pre_imagebase + cur_imagebase;
+				*repair_pos = *repair_pos - pre_imagebase + cur_imagebase;
 				VirtualProtect(repair_pos, sizeof(PDWORD_PTR), old_protect, &old_protect);
-				}
 			}
-		ptemp_relp = (PIMAGE_BASE_RELOCATION)((DWORD_PTR)ptemp_relp + ptemp_relp->SizeOfBlock);
 		}
-		return true;
+		ptemp_relp = (PIMAGE_BASE_RELOCATION)((DWORD_PTR)ptemp_relp + ptemp_relp->SizeOfBlock);
 	}
-	return false;
+	return true;
 }
 
 // 修复导入表
 bool PEtools::repair_import(DWORD rva)
-				{
+{
 	if (load_pe_buff == nullptr)  return false;
 	DWORD import_rva = rva != 0 ? rva : get_import_rva();
 	if (import_rva == 0) return false;
 
-		// 导入表 
+	// 导入表 
 	PIMAGE_IMPORT_DESCRIPTOR p_import = (PIMAGE_IMPORT_DESCRIPTOR)((DWORD_PTR)load_pe_buff + import_rva);
-		PIMAGE_THUNK_DATA pThunk_First = nullptr;
-		PIMAGE_THUNK_DATA pThunk_orgin = nullptr;
+	PIMAGE_THUNK_DATA pThunk_First = nullptr;
+	PIMAGE_THUNK_DATA pThunk_orgin = nullptr;
 
-		while (p_import->Name != 0)
-		{
+	while (p_import->Name != 0)
+	{
 		char* dllname = (char*)((DWORD_PTR)load_pe_buff + p_import->Name);
-			HMODULE hmod = LoadLibraryA(dllname);
-			if (hmod == NULL)return false;
+		HMODULE hmod = LoadLibraryA(dllname);
+		if (hmod == NULL)return false;
 
-			// IAT没修复之前FirstThunk == OriginalFirstThunk
-			// OriginalFirstThunk可能被复制成0,所以用FirstThunk遍历修复
+		// IAT没修复之前FirstThunk == OriginalFirstThunk
+		// OriginalFirstThunk可能被复制成0,所以用FirstThunk遍历修复
 		pThunk_First = (PIMAGE_THUNK_DATA)((DWORD_PTR)load_pe_buff + p_import->FirstThunk);
-			while (pThunk_First->u1.Ordinal != 0)
-			{
-				// 修复
+		while (pThunk_First->u1.Ordinal != 0)
+		{
+			// 修复
 			if (!IMAGE_SNAP_BY_ORDINAL(pThunk_First->u1.Ordinal))
-				{
+			{
 				PIMAGE_IMPORT_BY_NAME pby_name = (PIMAGE_IMPORT_BY_NAME)((DWORD_PTR)load_pe_buff + pThunk_First->u1.Ordinal);
-					char* func_name = pby_name->Name;
-					// 内存属性
-					DWORD old_protect = 0;
+				char* func_name = pby_name->Name;
+				// 内存属性
+				DWORD old_protect = 0;
 				VirtualProtect(pThunk_First, sizeof(PDWORD_PTR), PAGE_EXECUTE_READWRITE, &old_protect);
 				*(PDWORD_PTR)pThunk_First = (DWORD_PTR)GetProcAddress(hmod, func_name);
 				VirtualProtect(pThunk_First, sizeof(PDWORD_PTR), old_protect, &old_protect);
-				}
-				else
-				{
-					DWORD old_protect = 0;
+			}
+			else
+			{
+				DWORD old_protect = 0;
 				VirtualProtect(pThunk_First, sizeof(PDWORD_PTR), PAGE_EXECUTE_READWRITE, &old_protect);
 				*(PDWORD_PTR)pThunk_First = (DWORD_PTR)GetProcAddress(hmod, (LPCSTR)(pThunk_First->u1.Ordinal & ~IMAGE_ORDINAL_FLAG));
 				VirtualProtect(pThunk_First, sizeof(PDWORD_PTR), old_protect, &old_protect);
-				}
-				pThunk_First++;
 			}
-			p_import++;
+			pThunk_First++;
 		}
-		return true;
+		p_import++;
 	}
-	return false;
+	return true;
 }
 
 // 手动加载TLS
