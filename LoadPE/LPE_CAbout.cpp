@@ -3,13 +3,12 @@
 
 #include "pch.h"
 #include "LPE_CAbout.h"
-#include "afxdialogex.h"
 
 // CAbout 对话框
 
 IMPLEMENT_DYNAMIC(CAbout, CDialogEx)
 
-CAbout::CAbout(CWnd* pParent /*=nullptr*/)
+CAbout::CAbout(CWnd* pParent )
 	: CDialogEx(IDD_DIALOG_ABOUT, pParent)
 {
 }
