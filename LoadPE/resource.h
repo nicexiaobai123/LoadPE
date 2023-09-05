@@ -25,6 +25,8 @@
 #define IDC_STATIC_LINK                 1008
 #define IDC_BUTTON_UNDLL                1008
 #define IDC_BUTTON_INPACK               1009
+#define IDC_BUTTON_REFRESH              1010
+#define IDC_BUTTON_REFRESH2             1011
 #define IDC_EDIT_INFILE                 1013
 #define IDC_BUTTON1                     1014
 #define IDC_EDIT_OUTFILE                1015

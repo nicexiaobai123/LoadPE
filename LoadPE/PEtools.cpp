@@ -210,7 +210,6 @@ string PEtools::get_secname_byrva(DWORD rva)
 	return  string("");
 }
 
-
 // 将buffer 里面的数据保存到文件
 bool PEtools::to_file(const string& file_name)
 {

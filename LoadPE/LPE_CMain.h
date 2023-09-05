@@ -36,4 +36,9 @@ public:
 	afx_msg void OnBnClickedButtonUndll();
 	afx_msg void OnBnClickedButtonInpack();
 	afx_msg void OnBnClickedButtonPe();
+	afx_msg void OnBnClickedButtonRefresh();
+	afx_msg void OnBnClickedButtonRefresh2();
+private:
+	void EnumProcessToSetList();
+	void EnumMuduleToSetList(HANDLE hprocess);
 };

@@ -23,6 +23,90 @@ CMain::~CMain()
 
 }
 
+// 私有方法：遍历进程设置到控件上
+void CMain::EnumProcessToSetList()
+{
+	// 遍历进程 
+	int row_index = 0;
+	HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnap == INVALID_HANDLE_VALUE) {
+		MessageBox(TEXT("创建进程快照失败"));
+		exit(0);
+	}
+	PROCESSENTRY32 pro_entry{ sizeof(PROCESSENTRY32) };
+	if (Process32First(hSnap, &pro_entry)) {
+		do
+		{
+			CString pid;
+			CString name;
+			pid.Format(TEXT("%d"), pro_entry.th32ProcessID);
+			name.Format(TEXT("%s"), pro_entry.szExeFile);
+			m_list_process.InsertItem(row_index, name);			// 名称
+			m_list_process.SetItemText(row_index, 1, pid);		// PID
+
+			char* buff = new char[256]{ 0 };
+			int path_size = 256;
+			HANDLE hprocess = OpenProcess(PROCESS_QUERY_INFORMATION, false, pro_entry.th32ProcessID);
+
+			// 两种方法,都是根据PID获取完全路径 注释的是从device开始
+			// int ret = QueryFullProcessImageName(hprocess, 1, path, &path_size);
+			int ret = GetModuleFileNameExA(hprocess, NULL, buff, path_size);		   // NULL表示exe文件
+			if (ret) {
+				CString path(buff);
+				m_list_process.SetItemText(row_index, 2, path);	// 路径
+			}
+
+			delete[] buff;
+			CloseHandle(hprocess);
+
+			row_index++;
+		} while (Process32Next(hSnap, &pro_entry));
+	}
+}
+
+// 私有方法：遍历模块设置到控件上
+void CMain::EnumMuduleToSetList(HANDLE hprocess)
+{
+	// 获取模块总大小
+	HMODULE temp = 0;
+	DWORD dw_size = 0;
+	if (EnumProcessModulesEx(hprocess, &temp, sizeof(HMODULE), &dw_size, LIST_MODULES_DEFAULT) == 0) {
+		return;
+	}
+
+	// 获取所有模块句柄	必成功
+	HMODULE* module_arr = NULL;
+	if ((module_arr = new HMODULE[dw_size / sizeof(HMODULE)]) == NULL) {
+		return;
+	}
+	EnumProcessModulesEx(hprocess, module_arr, dw_size, &dw_size, LIST_MODULES_DEFAULT);
+
+	// 遍历所有模块
+	int row_index = 0;
+	for (int i = 0; i < (dw_size / sizeof(HMODULE)); i++)
+	{
+		// 得到基址、大小等信息
+		MODULEINFO mo_info{ 0 };
+		GetModuleInformation(hprocess, module_arr[i], &mo_info, sizeof(mo_info));
+
+		// 模块路径
+		TCHAR file_path[256]{ 0 };
+		GetModuleFileNameEx(hprocess, module_arr[i], file_path, 256);
+
+		CString cs_base;
+		CString cs_basesize;
+		cs_base.Format(TEXT("%p"), mo_info.lpBaseOfDll);
+		cs_basesize.Format(TEXT("%08X"), mo_info.SizeOfImage);
+
+		m_list_modules.InsertItem(row_index, cs_base);
+		m_list_modules.SetItemText(row_index, 1, cs_basesize);
+		m_list_modules.SetItemText(row_index, 2, file_path);
+		row_index++;
+	}
+	delete[] module_arr;
+	CloseHandle(hprocess);
+}
+
 // 变量与控件的绑定关系
 void CMain::DoDataExchange(CDataExchange* pDX)
 {
@@ -64,42 +148,8 @@ void CMain::InitListView()
 	m_list_process.InsertColumn(2, TEXT("路径"), LVCFMT_LEFT, 400);
 	m_list_process.InsertColumn(3, TEXT(""), LVCFMT_LEFT, 20);
 
-	// 遍历进程 
-	int row_index = 0;
-	HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hSnap == INVALID_HANDLE_VALUE) {
-		MessageBox(TEXT("创建进程快照失败"));
-		exit(0);
-	}
-	PROCESSENTRY32 pro_entry{ sizeof(PROCESSENTRY32) };
-	if (Process32First(hSnap, &pro_entry)) {
-		do
-		{
-			CString pid;
-			CString name;
-			pid.Format(TEXT("%d"), pro_entry.th32ProcessID);
-			name.Format(TEXT("%s"), pro_entry.szExeFile);
-			m_list_process.InsertItem(row_index, name);			// 名称
-			m_list_process.SetItemText(row_index, 1, pid);		// PID
-
-			char* buff = new char[256]{ 0 };
-			int path_size = 256;
-			HANDLE hprocess = OpenProcess(PROCESS_QUERY_INFORMATION, false, pro_entry.th32ProcessID);
-
-			// 两种方法,都是根据PID获取完全路径 注释的是从device开始
-			// int ret = QueryFullProcessImageName(hprocess, 1, path, &path_size);
-			int ret = GetModuleFileNameExA(hprocess, NULL, buff, path_size);		   // NULL表示exe文件
-			if (ret) {
-				CString path(buff);
-				m_list_process.SetItemText(row_index, 2, path);	// 路径
-			}
-
-			delete[] buff;
-			CloseHandle(hprocess);
-
-			row_index++;
-		} while (Process32Next(hSnap, &pro_entry));
-	}
+	// 遍历
+	this->EnumProcessToSetList();
 }
 
 // 初始化列表控件		第二个列表控件标题
@@ -126,6 +176,8 @@ BEGIN_MESSAGE_MAP(CMain, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_UNDLL, &CMain::OnBnClickedButtonUndll)
 	ON_BN_CLICKED(IDC_BUTTON_INPACK, &CMain::OnBnClickedButtonInpack)
 	ON_BN_CLICKED(IDC_BUTTON_PE, &CMain::OnBnClickedButtonPe)
+	ON_BN_CLICKED(IDC_BUTTON_REFRESH, &CMain::OnBnClickedButtonRefresh)
+	ON_BN_CLICKED(IDC_BUTTON_REFRESH2, &CMain::OnBnClickedButtonRefresh2)
 END_MESSAGE_MAP()
 
 // 选中条目改变		遍历模块
@@ -145,44 +197,9 @@ void CMain::OnLvnItemchangedListProcess(NMHDR* pNMHDR, LRESULT* pResult)
 	HANDLE hprocess = OpenProcess(PROCESS_ALL_ACCESS, false, dw_pid);
 	if (hprocess == NULL) return;
 
-	// 获取模块总大小
-	HMODULE temp = 0;
-	DWORD dw_size = 0;
-	if (EnumProcessModulesEx(hprocess, &temp, sizeof(HMODULE), &dw_size, LIST_MODULES_DEFAULT) == 0) {
-		return;
-	}
+	// 遍历
+	this->EnumMuduleToSetList(hprocess);
 
-	// 获取所有模块句柄	必成功
-	HMODULE* module_arr = NULL;
-	if ((module_arr = new HMODULE[dw_size / sizeof(HMODULE)]) == NULL) {
-		return;
-	}
-	EnumProcessModulesEx(hprocess, module_arr, dw_size, &dw_size, LIST_MODULES_DEFAULT);
-
-	// 遍历所有模块
-	int row_index = 0;
-	for (int i = 0; i < (dw_size / sizeof(HMODULE)); i++)
-	{
-		// 得到基址、大小等信息
-		MODULEINFO mo_info{ 0 };
-		GetModuleInformation(hprocess, module_arr[i], &mo_info, sizeof(mo_info));
-
-		// 模块路径
-		TCHAR file_path[256]{ 0 };
-		GetModuleFileNameEx(hprocess, module_arr[i], file_path, 256);
-
-		CString cs_base;
-		CString cs_basesize;
-		cs_base.Format(TEXT("%p"), mo_info.lpBaseOfDll);
-		cs_basesize.Format(TEXT("%08X"), mo_info.SizeOfImage);
-
-		m_list_modules.InsertItem(row_index, cs_base);
-		m_list_modules.SetItemText(row_index, 1, cs_basesize);
-		m_list_modules.SetItemText(row_index, 2, file_path);
-		row_index++;
-	}
-	delete[] module_arr;
-	CloseHandle(hprocess);
 	*pResult = 0;
 }
 
@@ -291,4 +308,26 @@ void CMain::OnBnClickedButtonInpack()
 {
 	CInPack inPack(NULL);
 	inPack.DoModal();
+}
+
+// 刷新进程
+void CMain::OnBnClickedButtonRefresh()
+{
+	m_list_modules.DeleteAllItems();
+	m_list_process.DeleteAllItems();
+	EnumProcessToSetList();
+}
+
+// 刷新模块
+void CMain::OnBnClickedButtonRefresh2()
+{
+	m_list_modules.DeleteAllItems();
+
+	int sel_row = m_list_process.GetNextItem(-1, LVNI_SELECTED);						// 获取选中状态的行号
+	unsigned int dw_pid = _ttoi(m_list_process.GetItemText(sel_row, 1).GetString());	// pid字符转换成数字
+	HANDLE hprocess = OpenProcess(PROCESS_ALL_ACCESS, false, dw_pid);
+	if (hprocess == NULL) return;
+
+	// 遍历
+	this->EnumMuduleToSetList(hprocess);
 }
